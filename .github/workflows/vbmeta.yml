@@ -37,10 +37,14 @@ jobs:
         run: |
           lz4 -B6 --content-size -f vbmeta.img vbmeta.img.lz4
           mkdir -p output
-          tar -C . -cf output/vbmeta_disabled.tar vbmeta.img.lz4
-          md5sum -t output/vbmeta_disabled.tar >> output/vbmeta_disabled.tar
-          mv output/vbmeta_disabled.tar output/vbmeta_disabled.tar.md5
-          ls -lh output/vbmeta_disabled.tar.md5
+          cp vbmeta.img.lz4 output/vbmeta.img.lz4
+          (
+            cd output
+            tar -cf vbmeta_disabled.tar vbmeta.img.lz4
+            md5sum -t vbmeta_disabled.tar >> vbmeta_disabled.tar
+            mv vbmeta_disabled.tar vbmeta_disabled.tar.md5
+            ls -lh vbmeta_disabled.tar.md5
+          )
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
