@@ -1,0 +1,50 @@
+name: PATCH VBMeta
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install LZ4
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lz4
+
+      - name: Patch stock vbmeta
+        run: |
+          test -s vbmeta.img.lz4
+          lz4 -d -f vbmeta.img.lz4 vbmeta.img
+          python3 patch-vbmeta.py vbmeta.img
+          python3 - <<'PY'
+          from pathlib import Path
+          data = Path("vbmeta.img").read_bytes()
+          if data[:4] != b"AVB0":
+              raise SystemExit("Invalid AVB header")
+          if data[123] != 3:
+              raise SystemExit(f"Unexpected AVB flags: {data[123]}")
+          print(f"Validated vbmeta image: {len(data)} bytes, AVB flags=0x{data[123]:02x}")
+          PY
+
+      - name: Repack for Odin
+        run: |
+          lz4 -B6 --content-size -f vbmeta.img vbmeta.img.lz4
+          mkdir -p output
+          tar -C . -cf output/vbmeta_disabled.tar vbmeta.img.lz4
+          md5sum -t output/vbmeta_disabled.tar >> output/vbmeta_disabled.tar
+          mv output/vbmeta_disabled.tar output/vbmeta_disabled.tar.md5
+          ls -lh output/vbmeta_disabled.tar.md5
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: output/vbmeta_disabled.tar.md5
+          name: Patched-VBMeta
+          tag_name: vbmeta-${{ github.run_id }}
